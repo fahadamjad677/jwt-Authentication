@@ -1,12 +1,13 @@
-import { Body, Controller, Post, Req, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, Post, Res, UseGuards } from '@nestjs/common';
 import { RegisterDto } from './dto/register.dto';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto';
-import type { Request, Response } from 'express';
+import type { Response } from 'express';
 import { jwtRefreshGuard } from './guard/jwtRefreshGuard';
 import { Throttle } from '@nestjs/throttler';
 import { jwtAcessGuard } from './guard/jwtAccessGuard';
-import type { RequestWithUser } from './interface';
+import { GetUser } from 'src/user/decorator/getUser.decorator';
+import type { PayloadUser } from './types';
 
 @Controller('auth')
 export class AuthController {
@@ -39,7 +40,7 @@ export class AuthController {
   @UseGuards(jwtAcessGuard)
   @Post('logout')
   logout(
-    @Req() request: RequestWithUser,
+    @GetUser() user: PayloadUser,
     @Res({ passthrough: true }) res: Response,
   ) {
     res.clearCookie('refresh_token', {
@@ -47,7 +48,7 @@ export class AuthController {
       secure: false,
       sameSite: 'strict',
     });
-    return this.authservice.Logout(request.user);
+    return this.authservice.Logout(user);
   }
 
   //refresh token
