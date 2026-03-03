@@ -1,6 +1,12 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { UpdateUserDto } from './dto/updateUser.dto';
+import { Role } from '../generated/prisma/enums';
+import { PayloadUser } from 'src/auth/types';
 
 @Injectable()
 export class UserService {
@@ -91,5 +97,41 @@ export class UserService {
         createdAt: true,
       },
     });
+  }
+
+  async UpdateRole(targetId: string, targetRole: Role, user: PayloadUser) {
+    //user cannot change its own role.
+    if (user.sub === targetId) {
+      throw new ForbiddenException('cannot change your own role');
+    }
+
+    //Now getting the target User
+    const targetUser = await this.prisma.user.findFirst({
+      where: { id: targetId },
+    });
+
+    if (!targetUser) {
+      throw new NotFoundException('User not found');
+    }
+
+    const roleHierarchy = {
+      USER: 1,
+      MODERATOR: 2,
+      ADMIN: 3,
+    };
+
+    //Cannot Change Role Greater than you..
+    if (roleHierarchy[targetUser.role] >= roleHierarchy[user.role]) {
+      throw new ForbiddenException(
+        'You cannot modify a user with equal or higher role',
+      );
+    }
+
+    // Cannot assign role equal or higher than yourself
+    if (roleHierarchy[targetRole] >= roleHierarchy[user.role]) {
+      throw new ForbiddenException(
+        'You cannot assign a role equal or higher than yours',
+      );
+    }
   }
 }

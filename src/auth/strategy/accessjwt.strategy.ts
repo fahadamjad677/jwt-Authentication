@@ -1,6 +1,5 @@
 import { PassportStrategy } from '@nestjs/passport';
 import { Strategy, ExtractJwt } from 'passport-jwt';
-import { LoginDto } from '../dto';
 
 import { ConfigService } from '@nestjs/config';
 import { Injectable, UnauthorizedException } from '@nestjs/common';
@@ -26,7 +25,7 @@ export class AcessjwtStrategy extends PassportStrategy(
       secretOrKey: secret,
     });
   }
-  async validate(payload: LoginDto) {
+  async validate(payload: PayloadUser) {
     if (!payload) {
       throw new UnauthorizedException('Invalid Token');
     }
@@ -37,6 +36,7 @@ export class AcessjwtStrategy extends PassportStrategy(
       select: {
         id: true,
         email: true,
+        role: true,
       },
     });
 
@@ -45,6 +45,7 @@ export class AcessjwtStrategy extends PassportStrategy(
       const payload: PayloadUser = {
         email: user.email,
         sub: user.id,
+        role: user.role,
       };
       return payload;
     }
