@@ -1,2 +1,2 @@
 export * from './cookie.interface';
-export * from './payloadInterface';
+export * from './payload.interface';

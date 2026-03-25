@@ -7,11 +7,6 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
-enum Role {
-  USER
-  ADMIN
-  MODERATOR
-}
 
 model User {
   id              String      @id @default(uuid())
@@ -19,7 +14,9 @@ model User {
   username        String?
   password        String
   
-  role            Role        @default(USER)
+  roleId String
+  role   Role   @relation(fields: [roleId], references: [id])
+
   isActive        Boolean     @default(true)
   isEmailVerified Boolean     @default(false)
   refreshToken    String?
@@ -46,4 +43,32 @@ model Bookmark {
   updatedAt   DateTime @updatedAt
 
   @@index([userId])
+}
+
+
+//User will have one roll
+model Role {
+  id          String       @id @default(uuid())
+  name        String       @unique
+  permissions RolePermission[]
+  users       User[]
+}
+
+
+model Permission {
+  id          String       @id @default(uuid())
+  name        String       @unique
+  roles       RolePermission[]
+}
+
+
+//many to many role permission
+model RolePermission {
+  roleId        String
+  permissionId  String
+
+  role          Role        @relation(fields: [roleId], references: [id])
+  permission    Permission  @relation(fields: [permissionId], references: [id])
+
+  @@id([roleId, permissionId])
 }

@@ -33,6 +33,14 @@ export class AuthService {
     //Creating hash for password.
     const hashed = await bcrypt.hash(dto.password, 10);
 
+    // Get default role (user)
+    const defaultRole = await this.prismaservice.role.findUnique({
+      where: { name: 'user' },
+    });
+
+    if (!defaultRole) {
+      throw new Error('Default role not found. Please seed roles.');
+    }
     //Registring User in database.
     const userInsert = await this.prismaservice.user.create({
       data: {
@@ -40,6 +48,7 @@ export class AuthService {
         username: dto.username,
         password: hashed,
         isEmailVerified: false,
+        roleId: defaultRole.id,
         isActive: true,
         loginAttempts: 0,
       },
@@ -69,7 +78,7 @@ export class AuthService {
       },
     });
     if (!user) {
-      throw new BadRequestException(' Invalid Cridentails');
+      throw new BadRequestException(' Invalid Cridentails wrong email');
     }
 
     if (user.lockTime && user.lockTime > new Date()) {

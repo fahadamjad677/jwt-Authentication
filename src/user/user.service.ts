@@ -3,84 +3,71 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { PrismaService } from 'src/prisma/prisma.service';
+import { PrismaService } from '../prisma/prisma.service';
 import { UpdateUserDto } from './dto/updateUser.dto';
-import { Role } from '../generated/prisma/enums';
-import { PayloadUser } from 'src/auth/types';
+import { isRoleType, PayloadUser } from '../auth/types';
+import { Prisma } from '../generated/prisma/client';
+
+//These is the Fields which we will select
+export const userSelect = {
+  id: true,
+  email: true,
+  username: true,
+  isActive: true,
+  isEmailVerified: true,
+  createdAt: true,
+
+  bookmarks: {
+    select: {
+      id: true,
+      title: true,
+      url: true,
+      description: true,
+      createdAt: true,
+    },
+    orderBy: {
+      createdAt: 'desc',
+    },
+  },
+} satisfies Prisma.UserSelect;
+
+const roleSelect = {
+  id: true,
+  name: true,
+} satisfies Prisma.RoleSelect;
 
 @Injectable()
 export class UserService {
   constructor(private prisma: PrismaService) {}
-
   //Get User
   async getById(id: string) {
     const user = await this.prisma.user.findUnique({
       where: { id },
-      select: {
-        id: true,
-        email: true,
-        username: true,
-        isActive: true,
-        isEmailVerified: true,
-        createdAt: true,
-
-        bookmarks: {
-          select: {
-            id: true,
-            title: true,
-            url: true,
-            description: true,
-            createdAt: true,
-          },
-          orderBy: {
-            createdAt: 'desc',
-          },
-        },
-      },
+      select: userSelect,
     });
 
     if (!user) {
       throw new NotFoundException('User not found');
     }
-
     return user;
   }
 
   //Update The User
   async updateUser(id: string, dto: UpdateUserDto) {
-    await this.getById(id);
-
-    return this.prisma.user.update({
+    const user = await this.prisma.user.update({
       where: { id },
       data: dto,
-      select: {
-        id: true,
-        email: true,
-        username: true,
-        isActive: true,
-        isEmailVerified: true,
-        createdAt: true,
-
-        bookmarks: {
-          select: {
-            id: true,
-            title: true,
-            url: true,
-            description: true,
-            createdAt: true,
-          },
-          orderBy: {
-            createdAt: 'desc',
-          },
-        },
-      },
+      select: userSelect,
     });
+
+    if (!user) {
+      throw new NotFoundException('user not found');
+    }
+    return user;
   }
 
   //Delete The user
   async deleteUser(id: string) {
-    await this.getById(id);
-
     return this.prisma.user.delete({
       where: { id },
     });
@@ -88,7 +75,7 @@ export class UserService {
 
   //Get All The users In database.
   async getAllUsers() {
-    return this.prisma.user.findMany({
+    const users = await this.prisma.user.findMany({
       select: {
         id: true,
         email: true,
@@ -97,41 +84,75 @@ export class UserService {
         createdAt: true,
       },
     });
+
+    if (users.length === 0) {
+      throw new NotFoundException('users not found');
+    }
   }
 
-  async UpdateRole(targetId: string, targetRole: Role, user: PayloadUser) {
-    //user cannot change its own role.
+  async updateRole(targetId: string, targetRole: string, user: PayloadUser) {
+    //  Cannot change your own role
     if (user.sub === targetId) {
-      throw new ForbiddenException('cannot change your own role');
+      throw new ForbiddenException('Cannot change your own role');
     }
 
-    //Now getting the target User
-    const targetUser = await this.prisma.user.findFirst({
+    // Get target user WITH role
+    const targetUser = await this.prisma.user.findUnique({
       where: { id: targetId },
+      include: {
+        role: true,
+      },
     });
 
     if (!targetUser) {
       throw new NotFoundException('User not found');
     }
 
-    const roleHierarchy = {
-      USER: 1,
-      MODERATOR: 2,
-      ADMIN: 3,
+    const newRole = await this.prisma.role.findUnique({
+      where: { name: targetRole },
+      select: roleSelect,
+    });
+
+    if (!newRole || !isRoleType(newRole.name)) {
+      throw new NotFoundException('Role not found or invalid');
+    }
+
+    if (!isRoleType(targetUser.role.name)) {
+      throw new ForbiddenException('Invalid role in database');
+    }
+
+    //Role hierarchy (string-based now)
+    const roleHierarchy: Record<string, number> = {
+      user: 1,
+      moderator: 2,
+      admin: 3,
     };
 
-    //Cannot Change Role Greater than you..
-    if (roleHierarchy[targetUser.role] >= roleHierarchy[user.role]) {
+    const currentUserLevel = roleHierarchy[user.role];
+    const targetUserLevel = roleHierarchy[targetUser.role.name];
+    const newRoleLevel = roleHierarchy[targetRole];
+
+    // Cannot modify equal/higher user
+    if (targetUserLevel >= currentUserLevel) {
       throw new ForbiddenException(
         'You cannot modify a user with equal or higher role',
       );
     }
 
-    // Cannot assign role equal or higher than yourself
-    if (roleHierarchy[targetRole] >= roleHierarchy[user.role]) {
+    //  Cannot assign equal/higher role
+    if (newRoleLevel >= currentUserLevel) {
       throw new ForbiddenException(
         'You cannot assign a role equal or higher than yours',
       );
     }
+
+    //  Update role
+    return this.prisma.user.update({
+      where: { id: targetId },
+      data: {
+        roleId: newRole.id,
+      },
+      select: userSelect,
+    });
   }
 }

@@ -1,7 +1,6 @@
-import { IsEnum } from 'class-validator';
-import { Role } from '../../generated/prisma/enums';
+import { IsIn } from 'class-validator';
 
 export class UpdateRole {
-  @IsEnum(Role)
-  role: Role;
+  @IsIn(['user', 'moderator', 'admin'])
+  role: 'user' | 'moderator' | 'admin';
 }

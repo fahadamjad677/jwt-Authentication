@@ -7,7 +7,6 @@ import {
   Param,
   UseGuards,
   ParseUUIDPipe,
-  Req,
 } from '@nestjs/common';
 
 import { jwtAcessGuard } from 'src/auth/guard/jwtAccessGuard';
@@ -18,52 +17,59 @@ import { UpdateUserDto } from './dto/updateUser.dto';
 import { RolesGuard } from '../auth/guard/rolesGuard';
 import { Roles } from 'src/auth/decorator';
 import { UpdateRole } from './dto';
-import type { RequestWithUser } from 'src/auth/interface';
-import { Role } from 'src/generated/prisma/enums';
+import { PermissionsGuard } from '../auth/guard/permissionGuard';
+import { Permissions } from '../auth/decorator/index';
 
-@UseGuards(jwtAcessGuard, RolesGuard)
+@UseGuards(jwtAcessGuard, RolesGuard, PermissionsGuard)
 @Controller('users')
 export class UserController {
   constructor(private readonly userService: UserService) {}
 
-  //Get currently logged-in user
+  //Current user
   @Get('me')
   getMe(@GetUser() user: PayloadUser) {
     return this.userService.getById(user.sub);
   }
 
-  //Update current user profile
+  // Update own profile
   @Patch('me')
+  @Permissions('update_profile')
   updateMe(@GetUser() user: PayloadUser, @Body() dto: UpdateUserDto) {
     return this.userService.updateUser(user.sub, dto);
   }
 
-  // Delete current account
+  // Delete own account
   @Delete('me')
+  @Permissions('delete_account')
   deleteMe(@GetUser() user: PayloadUser) {
     return this.userService.deleteUser(user.sub);
   }
 
-  //Get all users (admin use-case)
+  // Admin: Get all users
   @Get()
+  @Roles('admin')
+  @Permissions('view_users')
   getAllUsers() {
     return this.userService.getAllUsers();
   }
 
-  // Get user by ID
-  @Roles(Role.ADMIN, Role.MODERATOR)
+  //  Admin/Moderator: Get user by ID
   @Get(':id')
+  @Roles('admin', 'moderator', 'ADMIN')
+  @Permissions('view_user')
   getUserById(@Param('id', ParseUUIDPipe) id: string) {
     return this.userService.getById(id);
   }
-  //Update Role.
+
+  //  Update user role (high privilege)
   @Patch(':id/role')
-  @Roles(Role.ADMIN, Role.MODERATOR)
+  @Roles('admin')
+  @Permissions('update_user_role')
   updateUserRole(
-    @Param() id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateRole,
-    @Req() request: RequestWithUser,
+    @GetUser() user: PayloadUser,
   ) {
-    return this.userService.UpdateRole(id, dto.role, request.user);
+    return this.userService.updateRole(id, dto.role, user);
   }
 }
