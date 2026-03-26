@@ -88,6 +88,7 @@ export class UserService {
     if (users.length === 0) {
       throw new NotFoundException('users not found');
     }
+    return users;
   }
 
   async updateRole(targetId: string, targetRole: string, user: PayloadUser) {

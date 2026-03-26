@@ -27,11 +27,17 @@ async function main() {
   // 🔹 Permissions
   // -------------------------
   const permissionsList = [
-    'update_profile',
+    'update_own_profile',
     'delete_account',
     'view_users',
     'view_user',
+    'update_profile',
     'update_user_role',
+    'create_bookmark',
+    'view_own_bookmarks',
+    'update_bookmark',
+    'delete_bookmark',
+    'view_all_bookmarks',
   ];
 
   const permissions = await Promise.all(
@@ -80,7 +86,7 @@ async function main() {
     data: [
       {
         roleId: userRole.id,
-        permissionId: getPermissionId('update_profile'),
+        permissionId: getPermissionId('update_own_profile'),
       },
       {
         roleId: userRole.id,
@@ -100,6 +106,18 @@ async function main() {
       {
         roleId: moderatorRole.id,
         permissionId: getPermissionId('view_user'),
+      },
+      {
+        roleId: moderatorRole.id,
+        permissionId: getPermissionId('update_own_profile'),
+      },
+      {
+        roleId: moderatorRole.id,
+        permissionId: getPermissionId('view_own_bookmarks'),
+      },
+      {
+        roleId: moderatorRole.id,
+        permissionId: getPermissionId('view_all_bookmarks'),
       },
     ],
     skipDuplicates: true,

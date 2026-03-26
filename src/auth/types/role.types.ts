@@ -1,5 +1,5 @@
-export type RoleType = 'user' | 'moderator' | 'admin';
+export type RoleType = 'USER' | 'MODERATOR' | 'ADMIN';
 
 export function isRoleType(role: string): role is RoleType {
-  return ['user', 'moderator', 'admin'].includes(role);
+  return ['USER', 'MODERATOR', 'ADMIN'].includes(role);
 }

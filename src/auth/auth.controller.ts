@@ -1,11 +1,10 @@
 import { Body, Controller, Post, Res, UseGuards } from '@nestjs/common';
-import { RegisterDto } from './dto/register.dto';
+import { RegisterDto } from './dto';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto';
 import type { Response } from 'express';
-import { jwtRefreshGuard } from './guard/jwtRefreshGuard';
+import { jwtRefreshGuard, jwtAcessGuard } from './guard';
 import { Throttle } from '@nestjs/throttler';
-import { jwtAcessGuard } from './guard/jwtAccessGuard';
 import { GetUser } from 'src/user/decorator/getUser.decorator';
 import type { PayloadUser } from './types';
 

@@ -9,16 +9,13 @@ import {
   ParseUUIDPipe,
 } from '@nestjs/common';
 
-import { jwtAcessGuard } from 'src/auth/guard/jwtAccessGuard';
+import { jwtAcessGuard, RolesGuard, PermissionsGuard } from '../auth/guard';
 import { GetUser } from './decorator/getUser.decorator';
 import type { PayloadUser } from '../auth/types';
 import { UserService } from './user.service';
 import { UpdateUserDto } from './dto/updateUser.dto';
-import { RolesGuard } from '../auth/guard/rolesGuard';
-import { Roles } from 'src/auth/decorator';
+import { Roles, Permissions } from '../auth/decorator';
 import { UpdateRole } from './dto';
-import { PermissionsGuard } from '../auth/guard/permissionGuard';
-import { Permissions } from '../auth/decorator/index';
 
 @UseGuards(jwtAcessGuard, RolesGuard, PermissionsGuard)
 @Controller('users')
@@ -33,7 +30,7 @@ export class UserController {
 
   // Update own profile
   @Patch('me')
-  @Permissions('update_profile')
+  @Permissions('update_own_profile')
   updateMe(@GetUser() user: PayloadUser, @Body() dto: UpdateUserDto) {
     return this.userService.updateUser(user.sub, dto);
   }
@@ -45,9 +42,9 @@ export class UserController {
     return this.userService.deleteUser(user.sub);
   }
 
-  // Admin: Get all users
+  // Admin/Moderator: Get all users
   @Get()
-  @Roles('admin')
+  @Roles('ADMIN', 'MODERATOR')
   @Permissions('view_users')
   getAllUsers() {
     return this.userService.getAllUsers();
@@ -55,7 +52,7 @@ export class UserController {
 
   //  Admin/Moderator: Get user by ID
   @Get(':id')
-  @Roles('admin', 'moderator', 'ADMIN')
+  @Roles('ADMIN', 'MODERATOR')
   @Permissions('view_user')
   getUserById(@Param('id', ParseUUIDPipe) id: string) {
     return this.userService.getById(id);
@@ -63,7 +60,7 @@ export class UserController {
 
   //  Update user role (high privilege)
   @Patch(':id/role')
-  @Roles('admin')
+  @Roles('ADMIN')
   @Permissions('update_user_role')
   updateUserRole(
     @Param('id', ParseUUIDPipe) id: string,
