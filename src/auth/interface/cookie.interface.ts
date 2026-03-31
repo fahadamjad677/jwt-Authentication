@@ -1,3 +1,7 @@
 export interface RequestWithCookies extends Request {
-  cookies: Record<string, string>;
+  cookies: {
+    refresh_token: string;
+    access_token: string;
+    csrf_token: string;
+  };
 }

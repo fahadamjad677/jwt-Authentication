@@ -10,7 +10,7 @@ import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { PayloadUser } from './types';
-
+import { generateCsrfToken } from 'src/comman/utils';
 @Injectable()
 export class AuthService {
   constructor(
@@ -165,10 +165,13 @@ export class AuthService {
       where: { id: id },
       data: { refreshToken: hashedRefresh },
     });
-    return { access_token, refresh_token };
+
+    //CSRF TOKEN signing
+    const csrf_token = generateCsrfToken();
+    return { access_token, refresh_token, csrf_token };
   }
 
-  //Refresh Rotation
+  //Refresh and CSRF rotattion
   async refresh(user: LoginDto) {
     //Finding User.
     const payload = await this.prismaservice.user.findUnique({

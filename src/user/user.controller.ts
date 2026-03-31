@@ -9,7 +9,12 @@ import {
   ParseUUIDPipe,
 } from '@nestjs/common';
 
-import { jwtAcessGuard, RolesGuard, PermissionsGuard } from '../auth/guard';
+import {
+  jwtAcessGuard,
+  RolesGuard,
+  PermissionsGuard,
+  CsrfGuard,
+} from '../auth/guard';
 import { GetUser } from './decorator/getUser.decorator';
 import type { PayloadUser } from '../auth/types';
 import { UserService } from './user.service';
@@ -17,7 +22,7 @@ import { UpdateUserDto } from './dto/updateUser.dto';
 import { Roles, Permissions } from '../auth/decorator';
 import { UpdateRole } from './dto';
 
-@UseGuards(jwtAcessGuard, RolesGuard, PermissionsGuard)
+@UseGuards(jwtAcessGuard, CsrfGuard, RolesGuard, PermissionsGuard)
 @Controller('users')
 export class UserController {
   constructor(private readonly userService: UserService) {}
