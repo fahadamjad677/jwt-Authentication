@@ -829,6 +829,7 @@ export const UserScalarFieldEnum = {
   refreshToken: 'refreshToken',
   loginAttempts: 'loginAttempts',
   lockTime: 'lockTime',
+  isDeleted: 'isDeleted',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const

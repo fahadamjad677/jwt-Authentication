@@ -217,7 +217,7 @@ export type PermissionOrderByWithRelationInput = {
 export type PermissionWhereUniqueInput = Prisma.AtLeast<{
   id?: string
   name?: string
-  resource_action?: Prisma.PermissionResourceActionCompoundUniqueInput
+  resource_action?: Prisma.PermissionResource_actionCompoundUniqueInput
   AND?: Prisma.PermissionWhereInput | Prisma.PermissionWhereInput[]
   OR?: Prisma.PermissionWhereInput[]
   NOT?: Prisma.PermissionWhereInput | Prisma.PermissionWhereInput[]
@@ -339,7 +339,7 @@ export type PermissionOrderByRelationAggregateInput = {
   _count?: Prisma.SortOrder
 }
 
-export type PermissionResourceActionCompoundUniqueInput = {
+export type PermissionResource_actionCompoundUniqueInput = {
   resource: string
   action: string
 }

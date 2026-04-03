@@ -1,5 +1,4 @@
 import { Body, Controller, Post, Res, UseGuards } from '@nestjs/common';
-import { RegisterDto } from './dto';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto';
 import type { Response } from 'express';
@@ -11,11 +10,6 @@ import type { PayloadUser } from './types';
 @Controller('auth')
 export class AuthController {
   constructor(private authservice: AuthService) {}
-  //Sign up
-  @Post('signup')
-  signup(@Body() dto: RegisterDto) {
-    return this.authservice.signup(dto);
-  }
 
   //Sign in
   //Using route-specific rate limiting.

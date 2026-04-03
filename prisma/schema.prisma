@@ -17,12 +17,12 @@ model User {
   roleId          String
   role            Role        @relation(fields: [roleId], references: [id])
 
-  // ✅ SELF RELATION (User hierarchy)
+  //SELF RELATION (User hierarchy)
   createdById     String?
   createdBy       User?       @relation("UserCreator", fields: [createdById], references: [id], onDelete: SetNull)
   createdUsers    User[]      @relation("UserCreator")
 
-  // ✅ Reverse relations
+  //Reverse relations
   createdRoles        Role[]        @relation("RoleCreator")
   createdPermissions  Permission[]  @relation("PermissionCreator")
 
@@ -31,7 +31,7 @@ model User {
   refreshToken    String?
   loginAttempts   Int         @default(0)
   lockTime        DateTime?
-
+  isDeleted Boolean           @default(false)
   bookmarks       Bookmark[]
 
   createdAt       DateTime    @default(now())
@@ -67,7 +67,7 @@ model Role {
 
   type        RoleType     @default(CUSTOM)
 
-  // ✅ FIX: OPTIONAL (breaks circular dependency)
+  // FIX: OPTIONAL (breaks circular dependency)
   createdById String?      
   createdBy   User?        @relation("RoleCreator", fields: [createdById], references: [id], onDelete: SetNull)
 
@@ -86,7 +86,7 @@ model Permission {
   resource    String
   action      String
 
-  // ✅ FIX: OPTIONAL
+  //FIX: OPTIONAL
   createdById String?
   createdBy   User?        @relation("PermissionCreator", fields: [createdById], references: [id], onDelete: SetNull)
 
@@ -95,7 +95,7 @@ model Permission {
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 
-  @@unique([resource, action])
+  @@unique([resource, action],name:"resource_action")
 }
 
 

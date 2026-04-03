@@ -49,9 +49,10 @@ export class RefreshjwtStrategy extends PassportStrategy(
       throw new UnauthorizedException('Invalid Token');
     }
 
-    const user = await this.prismaservice.user.findUnique({
+    const user = await this.prismaservice.user.findFirst({
       where: {
         email: payload.email,
+        isDeleted: false,
       },
       select: {
         id: true,

@@ -4,7 +4,7 @@ import { Strategy, ExtractJwt } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { PayloadUser, UserWithPermissions } from '../types';
+import { PayloadUser } from '../types';
 
 @Injectable()
 export class AcessjwtStrategy extends PassportStrategy(
@@ -29,37 +29,28 @@ export class AcessjwtStrategy extends PassportStrategy(
     if (!payload) {
       throw new UnauthorizedException('Invalid Token');
     }
-    const user = (await this.prismaservice.user.findUnique({
-      where: { email: payload.email },
+    const user = (await this.prismaservice.user.findFirst({
+      where: { email: payload.email, isDeleted: false },
       select: {
         id: true,
         email: true,
+        roleId: true,
         role: {
           select: {
             name: true,
-            permissions: {
-              select: {
-                permission: {
-                  select: {
-                    name: true,
-                  },
-                },
-              },
-            },
           },
         },
       },
-    })) as UserWithPermissions;
+    })) as {
+      email: string;
+      id: string;
+      roleId: string;
+      role: { name: string };
+    };
 
     if (user) {
-      const permissions = user.role.permissions.map((rp) => rp.permission.name);
       //payload
-      const payload: PayloadUser = {
-        email: user.email,
-        sub: user.id,
-        role: user.role.name,
-        permissions,
-      };
+      const payload: PayloadUser = { ...user, sub: user.id };
       return payload;
     }
     throw new UnauthorizedException('Invalid Token');

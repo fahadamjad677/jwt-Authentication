@@ -1,10 +1,10 @@
 import { Request } from 'express';
 
-export interface RequestWithUser extends Request {
+export interface RequestWithPayload extends Request {
   user: {
-    sub: string;
     email: string;
-    role: string;
-    permissions: string[];
+    sub: string;
+    roleId: string;
+    role: { name: string };
   };
 }
