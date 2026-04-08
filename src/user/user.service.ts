@@ -9,7 +9,7 @@ import { CreateUserDto, UpdateUserDto } from './dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '../generated/prisma/client';
 
-export const userSelect = {
+const userSelect = {
   id: true,
   email: true,
   roleId: true,

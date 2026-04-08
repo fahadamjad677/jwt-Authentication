@@ -6,17 +6,21 @@ import {
   Delete,
   Body,
   Param,
+  UseGuards,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 
 import { PermissionService } from './permission.service';
 import { CreatePermissionDto } from './dto/create-permission.dto';
 import { UpdatePermissionDto } from './dto/update-permission.dto';
+import { CsrfGuard, jwtAcessGuard, PermissionsGuard } from '../auth/guard';
+import { Permissions } from '../auth/decorator';
 
+UseGuards(jwtAcessGuard, CsrfGuard, PermissionsGuard);
 @Controller('permissions')
 export class PermissionController {
   constructor(private readonly permissionService: PermissionService) {}
 
-  //  Create Permission
   @Post()
   createPermission(@Body() dto: CreatePermissionDto) {
     return this.permissionService.createPermission(dto);
@@ -30,19 +34,22 @@ export class PermissionController {
 
   // Get Single Permission
   @Get(':id')
-  getPermission(@Param('id') id: string) {
+  getPermission(@Param('id', ParseUUIDPipe) id: string) {
     return this.permissionService.getPermissionById(id);
   }
 
   // Update Permission
   @Patch(':id')
-  updatePermission(@Param('id') id: string, @Body() dto: UpdatePermissionDto) {
+  updatePermission(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdatePermissionDto,
+  ) {
     return this.permissionService.updatePermission(id, dto);
   }
 
   // Delete Permission
   @Delete(':id')
-  deletePermission(@Param('id') id: string) {
+  deletePermission(@Param('id', ParseUUIDPipe) id: string) {
     return this.permissionService.deletePermission(id);
   }
 }

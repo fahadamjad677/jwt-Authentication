@@ -197,8 +197,8 @@ export type RolePermissionScalarWhereWithAggregatesInput = {
 }
 
 export type RolePermissionCreateInput = {
-  role: Prisma.RoleCreateNestedOneWithoutPermissionsInput
-  permission: Prisma.PermissionCreateNestedOneWithoutRolesInput
+  role: Prisma.RoleCreateNestedOneWithoutRolePermissionsInput
+  permission: Prisma.PermissionCreateNestedOneWithoutRolePermissionsInput
 }
 
 export type RolePermissionUncheckedCreateInput = {
@@ -207,8 +207,8 @@ export type RolePermissionUncheckedCreateInput = {
 }
 
 export type RolePermissionUpdateInput = {
-  role?: Prisma.RoleUpdateOneRequiredWithoutPermissionsNestedInput
-  permission?: Prisma.PermissionUpdateOneRequiredWithoutRolesNestedInput
+  role?: Prisma.RoleUpdateOneRequiredWithoutRolePermissionsNestedInput
+  permission?: Prisma.PermissionUpdateOneRequiredWithoutRolePermissionsNestedInput
 }
 
 export type RolePermissionUncheckedUpdateInput = {
@@ -345,7 +345,7 @@ export type RolePermissionUncheckedUpdateManyWithoutPermissionNestedInput = {
 }
 
 export type RolePermissionCreateWithoutRoleInput = {
-  permission: Prisma.PermissionCreateNestedOneWithoutRolesInput
+  permission: Prisma.PermissionCreateNestedOneWithoutRolePermissionsInput
 }
 
 export type RolePermissionUncheckedCreateWithoutRoleInput = {
@@ -387,7 +387,7 @@ export type RolePermissionScalarWhereInput = {
 }
 
 export type RolePermissionCreateWithoutPermissionInput = {
-  role: Prisma.RoleCreateNestedOneWithoutPermissionsInput
+  role: Prisma.RoleCreateNestedOneWithoutRolePermissionsInput
 }
 
 export type RolePermissionUncheckedCreateWithoutPermissionInput = {
@@ -425,7 +425,7 @@ export type RolePermissionCreateManyRoleInput = {
 }
 
 export type RolePermissionUpdateWithoutRoleInput = {
-  permission?: Prisma.PermissionUpdateOneRequiredWithoutRolesNestedInput
+  permission?: Prisma.PermissionUpdateOneRequiredWithoutRolePermissionsNestedInput
 }
 
 export type RolePermissionUncheckedUpdateWithoutRoleInput = {
@@ -441,7 +441,7 @@ export type RolePermissionCreateManyPermissionInput = {
 }
 
 export type RolePermissionUpdateWithoutPermissionInput = {
-  role?: Prisma.RoleUpdateOneRequiredWithoutPermissionsNestedInput
+  role?: Prisma.RoleUpdateOneRequiredWithoutRolePermissionsNestedInput
 }
 
 export type RolePermissionUncheckedUpdateWithoutPermissionInput = {

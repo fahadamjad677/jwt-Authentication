@@ -1,13 +1,9 @@
-import { IsString, MinLength } from 'class-validator';
+import { IsString } from 'class-validator';
 
 export class CreatePermissionDto {
   @IsString()
-  @MinLength(3)
-  name: string;
+  resource!: string;
 
   @IsString()
-  resource: string;
-
-  @IsString()
-  action: string;
+  action!: string;
 }

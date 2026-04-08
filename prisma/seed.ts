@@ -48,12 +48,12 @@ async function main() {
         email: 'superadmin@test.com',
         password: hashedPassword,
         roleId: superAdminRole.id,
-        createdById: null, // ✅ root
+        createdById: null,
       },
     });
 
     // -------------------------
-    // 3️⃣ Fix Role createdById (ONLY if null)
+    // 3️⃣ Fix Role createdById
     // -------------------------
     if (!superAdminRole.createdById) {
       await tx.role.update({
@@ -65,55 +65,45 @@ async function main() {
     }
 
     // -------------------------
-    // 4️⃣ Permissions
+    // 4️⃣ FULL SYSTEM PERMISSIONS
     // -------------------------
-    const permissionsData = [
-      { resource: 'user', action: 'create' },
-      { resource: 'user', action: 'read' },
-      { resource: 'user', action: 'update' },
-      { resource: 'user', action: 'delete' },
+    const resources = ['user', 'role', 'permission', 'bookmark'];
 
-      { resource: 'role', action: 'create' },
-      { resource: 'role', action: 'read' },
-      { resource: 'role', action: 'update' },
-      { resource: 'role', action: 'delete' },
-
-      { resource: 'permission', action: 'create' },
-      { resource: 'permission', action: 'read' },
-
-      { resource: 'bookmark', action: 'create' },
-      { resource: 'bookmark', action: 'read' },
-      { resource: 'bookmark', action: 'update' },
-      { resource: 'bookmark', action: 'delete' },
+    const actions = [
+      'create',
+      'read',
+      'update',
+      'delete',
+      'assign-permissions', // special action
     ];
 
     const permissions = [];
 
-    for (const p of permissionsData) {
-      const perm = await tx.permission.upsert({
-        where: {
-          resource_action: {
-            resource: p.resource,
-            action: p.action,
+    for (const resource of resources) {
+      for (const action of actions) {
+        const perm = await tx.permission.upsert({
+          where: {
+            resource_action: {
+              resource,
+              action,
+            },
           },
-        },
-        update: {
-          // ✅ ensure creator is fixed if missing
-          createdById: superAdmin.id,
-        },
-        create: {
-          name: `${p.resource}:${p.action}`,
-          resource: p.resource,
-          action: p.action,
-          createdById: superAdmin.id,
-        },
-      });
+          update: {
+            createdById: superAdmin.id,
+          },
+          create: {
+            resource,
+            action,
+            createdById: superAdmin.id,
+          },
+        });
 
-      permissions.push(perm);
+        permissions.push(perm);
+      }
     }
 
     // -------------------------
-    // 5️⃣ Assign Permissions
+    // 5️⃣ Assign ALL Permissions to SUPER_ADMIN
     // -------------------------
     await tx.rolePermission.createMany({
       data: permissions.map((p) => ({
@@ -123,7 +113,7 @@ async function main() {
       skipDuplicates: true,
     });
 
-    console.log('👑 Super Admin created');
+    console.log('👑 Super Admin seeded with FULL access');
   });
 
   console.log('✅ Seeding completed');

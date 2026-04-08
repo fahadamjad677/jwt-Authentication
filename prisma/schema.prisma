@@ -14,15 +14,19 @@ model User {
   username        String?
   password        String
   
+  // REQUIRED role
   roleId          String
   role            Role        @relation(fields: [roleId], references: [id])
 
-  //SELF RELATION (User hierarchy)
+  // User-specific permission overrides
+  userPermissions UserPermission[]
+
+  // SELF RELATION (User hierarchy)
   createdById     String?
   createdBy       User?       @relation("UserCreator", fields: [createdById], references: [id], onDelete: SetNull)
   createdUsers    User[]      @relation("UserCreator")
 
-  //Reverse relations
+  // Reverse relations
   createdRoles        Role[]        @relation("RoleCreator")
   createdPermissions  Permission[]  @relation("PermissionCreator")
 
@@ -31,11 +35,14 @@ model User {
   refreshToken    String?
   loginAttempts   Int         @default(0)
   lockTime        DateTime?
-  isDeleted Boolean           @default(false)
+  isDeleted       Boolean     @default(false)
+
   bookmarks       Bookmark[]
 
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
+
+  @@index([roleId])
 }
 
 model Bookmark {
@@ -45,7 +52,6 @@ model Bookmark {
   description String?
 
   userId      String
-
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   createdAt   DateTime @default(now())
@@ -55,7 +61,7 @@ model Bookmark {
 }
 
 
-//User will have one roll
+// User will have one role
 enum RoleType {
   SUPER_ADMIN
   CUSTOM
@@ -67,12 +73,11 @@ model Role {
 
   type        RoleType     @default(CUSTOM)
 
-  // FIX: OPTIONAL (breaks circular dependency)
-  createdById String?      
+  createdById String?
   createdBy   User?        @relation("RoleCreator", fields: [createdById], references: [id], onDelete: SetNull)
 
-  permissions RolePermission[]
-  users       User[]
+  rolePermissions RolePermission[]
+  users           User[]
 
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
@@ -81,25 +86,25 @@ model Role {
 
 model Permission {
   id          String       @id @default(uuid())
-  name        String       @unique
 
+  // name removed (derived from resource + action)
   resource    String
   action      String
 
-  //FIX: OPTIONAL
   createdById String?
   createdBy   User?        @relation("PermissionCreator", fields: [createdById], references: [id], onDelete: SetNull)
 
-  roles       RolePermission[]
+  rolePermissions RolePermission[]
+  userPermissions UserPermission[]
   
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 
-  @@unique([resource, action],name:"resource_action")
+  @@unique([resource, action], name: "resource_action")
 }
 
 
-//many to many role permission
+// Many-to-many Role ↔ Permission
 model RolePermission {
   roleId        String
   permissionId  String
@@ -108,4 +113,18 @@ model RolePermission {
   permission    Permission  @relation(fields: [permissionId], references: [id], onDelete: Cascade)
 
   @@id([roleId, permissionId])
+  @@index([permissionId])
+}
+
+
+// User-specific permission overrides
+model UserPermission {
+  userId       String
+  permissionId String
+
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([userId, permissionId])
+  @@index([permissionId])
 }

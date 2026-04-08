@@ -10,6 +10,10 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { PayloadUser } from './types';
 import { generateCsrfToken } from '../comman/utils';
+import { userSelect } from '../prisma/selects';
+import { authUserSelect } from '../prisma/selects/auth.user.select';
+import { buildPermissions } from './utils';
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -21,34 +25,13 @@ export class AuthService {
   //Sign in
   async signin(dto: LoginDto) {
     //If user Exists then validates password.
-    const user = (await this.prismaservice.user.findFirst({
+    const user = await this.prismaservice.user.findFirst({
       where: {
         email: dto.email,
         isDeleted: false,
       },
-      select: {
-        id: true,
-        email: true,
-        username: true,
-        password: true,
-        loginAttempts: true,
-        lockTime: true,
-        roleId: true,
-        role: {
-          select: {
-            name: true,
-          },
-        },
-      },
-    })) as {
-      id: string;
-      email: string;
-      password: string;
-      roleId: string;
-      role: { name: string };
-      loginAttempts: number;
-      lockTime: Date | null;
-    };
+      select: authUserSelect,
+    });
     if (!user) {
       throw new BadRequestException(' Invalid Cridentails wrong email');
     }
@@ -89,7 +72,10 @@ export class AuthService {
       where: { id: user.id },
       data: { loginAttempts: 0, lockTime: null },
     });
-    return this.signToken(user.id, user.email, user.role.name);
+
+    //Getting the roles+user specific Permissions
+    const permissions = buildPermissions(user);
+    return this.signToken(user.id, user.email, user.role.name, permissions);
   }
 
   //Logut
@@ -107,7 +93,12 @@ export class AuthService {
     return 'logut Successfull';
   }
   //---------Token Encrpytion------------------
-  async signToken(id: string, email: string, role: string) {
+  async signToken(
+    id: string,
+    email: string,
+    role: string,
+    permissions: Array<string>,
+  ) {
     const secretAcess = this.configservice.get<string>('JWT_ACCESS_SECRET');
     const secretRefresh = this.configservice.get<string>('JWT_REFRESH_SECRET');
 
@@ -118,6 +109,7 @@ export class AuthService {
       sub: id,
       email: email,
       role: role,
+      permissions: permissions,
     };
 
     //Acess Token Signed
@@ -148,31 +140,25 @@ export class AuthService {
   //Refresh and CSRF rotattion
   async refresh(user: LoginDto) {
     //Finding User.
-    const payload = (await this.prismaservice.user.findUnique({
+    const payload = await this.prismaservice.user.findUnique({
       where: {
         email: user.email,
         isDeleted: false,
       },
-      select: {
-        email: true,
-        id: true,
-        roleId: true,
-        role: {
-          select: {
-            name: true,
-          },
-        },
-      },
-    })) as {
-      email: string;
-      id: string;
-      roleId: string;
-      role: { name: string };
-    };
+      select: userSelect,
+    });
 
     if (!payload) {
       throw new BadRequestException(' Invalid Cridentails');
     }
-    return this.signToken(payload.id, payload.email, payload.role.name);
+
+    //Getting the roles+user specific Permissions
+    const permissions = buildPermissions(payload);
+    return this.signToken(
+      payload.id,
+      payload.email,
+      payload.role.name,
+      permissions,
+    );
   }
 }
