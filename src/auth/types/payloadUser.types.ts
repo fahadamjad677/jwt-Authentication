@@ -3,4 +3,5 @@ export type PayloadUser = {
   sub: string;
   roleId: string;
   role: { name: string };
+  permissions: string[];
 };

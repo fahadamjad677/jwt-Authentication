@@ -6,5 +6,6 @@ export interface RequestWithPayload extends Request {
     sub: string;
     roleId: string;
     role: { name: string };
+    permissions: string[];
   };
 }
