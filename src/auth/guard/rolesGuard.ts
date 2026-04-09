@@ -28,8 +28,10 @@ export class RolesGuard implements CanActivate {
     if (!user || !user.role) {
       throw new ForbiddenException('User role not found');
     }
-    const hasRole = requiredRoles.includes(user.role.name);
+    const hasRole = requiredRoles.includes(user.role);
 
+    console.log('requiredRoles:', requiredRoles);
+    console.log('userRole', user.role);
     if (!hasRole) {
       throw new ForbiddenException(
         'You do not have permission to access this resource ttt',
