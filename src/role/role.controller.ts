@@ -17,6 +17,7 @@ import { CreateRoleDto, UpdateRoleDto } from './dto';
 import { CsrfGuard, jwtAcessGuard, RolesGuard } from '../auth/guard';
 import { GetUser } from '../user/decorator';
 import { Roles } from '../auth/decorator';
+import { AssignPermissionsDto } from './dto';
 
 @UseGuards(jwtAcessGuard, CsrfGuard, RolesGuard)
 @Roles('SUPER_ADMIN')
@@ -56,5 +57,14 @@ export class RoleController {
   @Delete(':id')
   deleteRole(@Param('id', ParseUUIDPipe) id: string) {
     return this.roleService.deleteRole(id);
+  }
+
+  //Assign Role
+  @Post(':id/permissions')
+  assignPermissions(
+    @Param('id', ParseUUIDPipe) roleId: string,
+    @Body() dto: AssignPermissionsDto,
+  ) {
+    return this.roleService.assignPermissions(roleId, dto.permissionIds);
   }
 }
