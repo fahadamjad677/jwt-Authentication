@@ -67,4 +67,10 @@ export class RoleController {
   ) {
     return this.roleService.assignPermissions(roleId, dto.permissionIds);
   }
+
+  //Get Permission of Role
+  @Get(':id/permissions')
+  getPermissions(@Param('id', ParseUUIDPipe) roleId: string) {
+    return this.roleService.getPermissions(roleId);
+  }
 }

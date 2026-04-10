@@ -1,54 +1,123 @@
-import { Injectable } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { CreateRoleDto, UpdateRoleDto } from './dto';
-import { PrismaService } from 'src/prisma/prisma.service';
+import { PrismaService } from '../prisma/prisma.service';
+import { roleSelect } from '../prisma/selects';
+import { transformPermissions } from './utils/permission.utils';
 
 @Injectable()
 export class RoleService {
   constructor(private prisma: PrismaService) {}
 
-  createRole(dto: CreateRoleDto, userId: string) {
-    return this.prisma.role.create({
+  //-------Create Role---------------
+  async createRole(dto: CreateRoleDto, userId: string) {
+    //Checking if already exist then throwing error.
+    const exists = await this.prisma.role.findUnique({
+      where: {
+        name: dto.name,
+      },
+    });
+    if (exists) {
+      throw new ConflictException('role already Exists');
+    }
+
+    //creating role from database
+    const role = await this.prisma.role.create({
       data: {
         ...dto,
         createdById: userId,
       },
+      select: roleSelect,
     });
+
+    //returning response
+    return {
+      success: true,
+      message: 'Role created successfully',
+      data: role,
+    };
   }
 
-  getAllRoles() {
-    return this.prisma.role.findMany();
+  //---------------Get All Roles-------------
+  async getAllRoles() {
+    const roles = await this.prisma.role.findMany({
+      select: roleSelect,
+    });
+
+    return {
+      success: true,
+      message: 'Roles fetched successfully',
+      data: roles,
+    };
   }
 
-  getRoleById(id: string) {
-    return this.prisma.role.findUnique({
+  //Getting role by id
+  async getRoleById(id: string) {
+    //checking if not exists then throwing error
+    await this.ExistsCheck(id);
+
+    //Finding in database
+    const role = await this.prisma.role.findUnique({
       where: { id },
+      select: roleSelect,
     });
+
+    //Returning Response
+    return {
+      success: true,
+      message: 'Role fetched successfully',
+      data: role,
+    };
   }
 
-  updateRole(id: string, dto: UpdateRoleDto) {
-    return this.prisma.role.update({
+  //--------Update Role--------------------
+  async updateRole(id: string, dto: UpdateRoleDto) {
+    //checking if not exists then throwing error
+    await this.ExistsCheck(id);
+
+    //updating in database
+    const updated = await this.prisma.role.update({
       where: { id },
       data: dto,
+      select: roleSelect,
     });
+
+    //returning response
+    return {
+      success: true,
+      message: 'Role fetched successfully',
+      data: updated,
+    };
   }
 
-  deleteRole(id: string) {
-    return this.prisma.role.delete({
+  //-----------Delete Role---------------
+  async deleteRole(id: string) {
+    //checking if not exists then throwing error
+    await this.ExistsCheck(id);
+
+    //Deleting Record from database
+    const role = await this.prisma.role.delete({
       where: { id },
+      select: roleSelect,
     });
+
+    //Returning Response
+    return {
+      success: true,
+      message: 'Role Deleted successfully',
+      data: role,
+    };
   }
 
+  //--------Assign Permissions To Role-----------------
   async assignPermissions(roleId: string, permissionIds: string[]) {
-    // Check if role exists
-    const role = await this.prisma.role.findUnique({
-      where: { id: roleId },
-    });
+    //Checking if Role Exists
+    await this.ExistsCheck(roleId);
 
-    if (!role) {
-      throw new Error('Role not found');
-    }
-
-    // Validate permissions exist
+    // Checking  permissions exist
     const permissions = await this.prisma.permission.findMany({
       where: {
         id: { in: permissionIds },
@@ -77,15 +146,78 @@ export class RoleService {
     ]);
 
     // Return updated role with permissions
-    return this.prisma.role.findUnique({
+    const AssignedPermissions = await this.prisma.role.findUnique({
       where: { id: roleId },
-      include: {
+      select: {
+        name: true,
         permissions: {
-          include: {
-            permission: true,
+          select: {
+            permission: {
+              select: {
+                name: true,
+              },
+            },
           },
         },
       },
     });
+
+    //Response
+    return {
+      success: true,
+      message: 'Role fetched successfully',
+      data: AssignedPermissions,
+    };
+  }
+
+  //----------Get Permission of a Role--------------
+  async getPermissions(id: string) {
+    //Checking if Role not exists then throwing Error
+    await this.ExistsCheck(id);
+
+    //Fetching Permissions Against The role
+    const permissions = await this.prisma.role.findUnique({
+      where: {
+        id,
+      },
+      select: {
+        name: true,
+        permissions: {
+          select: {
+            permission: {
+              select: {
+                name: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    //Converting Response Into Desired shape of Object
+    const data = transformPermissions(permissions);
+
+    //Returning Response
+    return {
+      success: true,
+      message: 'Permissions Fetched Successfully',
+      data: data,
+    };
+  }
+
+  //-------------Helper Functions-------------------
+  async ExistsCheck(id: string) {
+    //checking if not exists then throwing error
+    const roleId = await this.prisma.role.findUnique({
+      where: {
+        id: id,
+      },
+      select: {
+        id: true,
+      },
+    });
+    if (!roleId) {
+      throw new NotFoundException('role not found');
+    }
   }
 }
