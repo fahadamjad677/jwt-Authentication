@@ -7,24 +7,22 @@ import * as bcrypt from 'bcrypt';
 
 import { CreateUserDto, UpdateUserDto } from './dto';
 import { PrismaService } from '../prisma/prisma.service';
-import { Prisma } from '../generated/prisma/client';
-
-export const userSelect = {
-  id: true,
-  email: true,
-  roleId: true,
-  createdAt: true,
-} satisfies Prisma.UserSelect;
+import { userSelect } from '../prisma/selects';
+import { transformUsers } from './utils';
 
 @Injectable()
 export class UserService {
   constructor(private prisma: PrismaService) {}
 
-  //Create User
+  //------------Create User------------------
   async createUser(dto: CreateUserDto, createdById: string) {
-    // Check email uniqueness
+    // Check email uniqueness of exists then throwing Error
+    //There is some problem of isDelete Scenario later ask Junaid Bhai
     const existing = await this.prisma.user.findUnique({
       where: { email: dto.email },
+      select: {
+        id: true,
+      },
     });
 
     if (existing) {
@@ -34,7 +32,8 @@ export class UserService {
     // Hash password
     const hashedPassword = await bcrypt.hash(dto.password, 10);
 
-    return this.prisma.user.create({
+    //Creating User
+    const User = await this.prisma.user.create({
       data: {
         email: dto.email,
         password: hashedPassword,
@@ -43,45 +42,101 @@ export class UserService {
       },
       select: userSelect,
     });
+
+    //Shaping the object
+    const userResponse = transformUsers(User);
+
+    //Returning Response
+    return {
+      success: true,
+      message: 'User Created Successfully',
+      data: userResponse,
+    };
   }
 
-  // Get All Users
+  //-------Getting All Users----------------
   async getAllUsers() {
-    return this.prisma.user.findMany({
+    const users = await this.prisma.user.findMany({
       where: {
         isDeleted: false,
       },
       select: userSelect,
     });
+    if (users) {
+      const usersResponse = transformUsers(users);
+      // Returning Response
+      return {
+        success: true,
+        message: 'User fetched Successfully',
+        data: usersResponse,
+      };
+    }
+
+    return {
+      success: false,
+      message: 'Users not found',
+      data: users,
+    };
   }
 
-  //Get Single User
+  //--------Getting Single User---------------
   async getUserById(id: string) {
-    const user = await this.prisma.user.findFirst({
+    //Checking if not Exists then throwing Error
+    const exists = await this.prisma.user.findUnique({
       where: {
         id,
-        isDeleted: false,
+      },
+      select: {
+        id: true,
+        isDeleted: true,
+      },
+    });
+
+    if (!exists || exists.isDeleted) {
+      throw new NotFoundException('User not found');
+    }
+
+    // Getting User from Database
+    const user = await this.prisma.user.findUnique({
+      where: {
+        id,
       },
       select: userSelect,
     });
 
-    if (!user) {
-      throw new NotFoundException('User not found');
+    if (user) {
+      const userResponse = transformUsers(user);
+      // Returning Response
+      return {
+        success: true,
+        message: 'User fetched Successfully',
+        data: userResponse,
+      };
     }
 
-    return user;
+    return {
+      success: false,
+      message: 'User not found',
+      data: user,
+    };
   }
 
-  //Update User
+  //----------Updating User---------------
   async updateUser(id: string, dto: UpdateUserDto) {
-    const user = await this.prisma.user.findUnique({
+    //Checking if not exists then throwing Error
+    const exists = await this.prisma.user.findUnique({
       where: { id },
+      select: {
+        id: true,
+        isDeleted: true,
+      },
     });
 
-    if (!user || user.isDeleted) {
+    if (!exists || exists.isDeleted) {
       throw new NotFoundException('User not found');
     }
 
+    //later ask junaid bhaii can we directly update dto validated data.
     const updatedData: UpdateUserDto = { ...dto };
 
     // Hash password if updating
@@ -89,15 +144,25 @@ export class UserService {
       updatedData.password = await bcrypt.hash(dto.password, 10);
     }
 
-    return this.prisma.user.update({
+    //Updating User in database
+    const user = await this.prisma.user.update({
       where: { id },
       data: updatedData,
       select: userSelect,
     });
+
+    const userResponse = transformUsers(user);
+    //Returning Response
+    return {
+      success: true,
+      message: 'User updated Successfully',
+      data: userResponse,
+    };
   }
 
-  //Soft Delete User
+  //------Soft Delete user--------------
   async softDeleteUser(id: string) {
+    //Checking if not exists then throwing Error
     const user = await this.prisma.user.findUnique({
       where: { id },
     });
@@ -106,11 +171,22 @@ export class UserService {
       throw new NotFoundException('User not found');
     }
 
-    return this.prisma.user.update({
+    //Deleting from database
+    const deleted = await this.prisma.user.update({
       where: { id },
       data: {
         isDeleted: true,
       },
+      select: userSelect,
     });
+
+    //Shaping User into simple Api object
+    const userResponse = transformUsers(deleted);
+    //Returning Response
+    return {
+      success: true,
+      message: 'User deleted Successfully',
+      data: userResponse,
+    };
   }
 }

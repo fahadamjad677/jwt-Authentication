@@ -1,1 +1,1 @@
-export * from './permission.utils';
+export * from './rolePermission.utils';

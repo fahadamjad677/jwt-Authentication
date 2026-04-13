@@ -15,8 +15,7 @@ export const authUserSelect = {
         select: {
           permission: {
             select: {
-              resource: true,
-              action: true,
+              name: true,
             },
           },
         },

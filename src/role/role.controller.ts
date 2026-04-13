@@ -71,6 +71,6 @@ export class RoleController {
   //Get Permission of Role
   @Get(':id/permissions')
   getPermissions(@Param('id', ParseUUIDPipe) roleId: string) {
-    return this.roleService.getPermissions(roleId);
+    return this.roleService.getPermissionsByRoleId(roleId);
   }
 }

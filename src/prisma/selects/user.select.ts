@@ -3,8 +3,6 @@ import { Prisma } from '../../generated/prisma/client';
 export const userSelect = {
   id: true,
   email: true,
-  password: true,
-  roleId: true,
 
   role: {
     select: {
@@ -13,8 +11,7 @@ export const userSelect = {
         select: {
           permission: {
             select: {
-              resource: true,
-              action: true,
+              name: true,
             },
           },
         },

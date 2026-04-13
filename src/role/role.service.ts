@@ -6,7 +6,7 @@ import {
 import { CreateRoleDto, UpdateRoleDto } from './dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { roleSelect } from '../prisma/selects';
-import { transformPermissions } from './utils/permission.utils';
+import { transformRolePermissions } from './utils/rolePermission.utils';
 
 @Injectable()
 export class RoleService {
@@ -171,7 +171,7 @@ export class RoleService {
   }
 
   //----------Get Permission of a Role--------------
-  async getPermissions(id: string) {
+  async getPermissionsByRoleId(id: string) {
     //Checking if Role not exists then throwing Error
     await this.ExistsCheck(id);
 
@@ -193,15 +193,20 @@ export class RoleService {
         },
       },
     });
-
-    //Converting Response Into Desired shape of Object
-    const data = transformPermissions(permissions);
+    if (permissions) {
+      const data = transformRolePermissions(permissions);
+      return {
+        success: true,
+        message: 'Permissions Fetched Successfully',
+        data: data,
+      };
+    }
 
     //Returning Response
     return {
       success: true,
       message: 'Permissions Fetched Successfully',
-      data: data,
+      data: permissions,
     };
   }
 
