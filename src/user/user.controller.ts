@@ -8,6 +8,7 @@ import {
   Param,
   UseGuards,
   ParseUUIDPipe,
+  Query,
 } from '@nestjs/common';
 
 import { UserService } from './user.service';
@@ -15,6 +16,7 @@ import { CreateUserDto, UpdateUserDto } from './dto';
 import { GetUser } from './decorator';
 import { CsrfGuard, jwtAcessGuard, RolesGuard } from '../auth/guard';
 import { Roles } from '../auth/decorator';
+import { PaginationDto } from './dto/pagination.dto';
 
 @UseGuards(jwtAcessGuard, CsrfGuard, RolesGuard)
 @Roles('SUPER_ADMIN')
@@ -33,8 +35,8 @@ export class UserController {
 
   // Get All Users
   @Get()
-  getAllUsers() {
-    return this.userService.getAllUsers();
+  getAllUsers(@Query() paginationdto: PaginationDto) {
+    return this.userService.getAllUsers(paginationdto);
   }
 
   // Get Single User

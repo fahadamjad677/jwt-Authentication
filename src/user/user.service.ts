@@ -9,6 +9,7 @@ import { CreateUserDto, UpdateUserDto } from './dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { userSelect } from '../prisma/selects';
 import { transformUsers } from './utils';
+import { PaginationDto } from './dto/pagination.dto';
 
 @Injectable()
 export class UserService {
@@ -55,22 +56,54 @@ export class UserService {
   }
 
   //-------Getting All Users----------------
-  async getAllUsers() {
-    const users = await this.prisma.user.findMany({
-      where: {
-        isDeleted: false,
-      },
-      select: userSelect,
-    });
-    if (!users) {
-      throw new NotFoundException('user not found');
+  async getAllUsers(paginationdata: PaginationDto) {
+    //Extracting page,limit
+    const { page, limit } = paginationdata;
+    const skip = (page - 1) * limit;
+
+    //Using promise.all to run queries in parallel for faster response
+    const [users, total] = await Promise.all([
+      this.prisma.user.findMany({
+        skip,
+        take: limit,
+        where: {
+          isDeleted: false,
+        },
+        select: userSelect,
+        orderBy: {
+          //Using orderBy to get Consistent Records.
+          createdAt: 'desc',
+        },
+      }),
+
+      this.prisma.user.count({
+        where: {
+          isDeleted: false,
+        },
+      }),
+    ]);
+
+    //Handling if pages > totalPages
+    const totalPages = Math.ceil(total / limit);
+
+    if (page > totalPages && total > 0) {
+      throw new NotFoundException('pages not found');
     }
+
+    //Shaping User response
     const usersResponse = transformUsers(users);
+
     // Returning Response
     return {
       success: true,
       message: 'User fetched Successfully',
       data: usersResponse,
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: totalPages,
+      },
     };
   }
 
