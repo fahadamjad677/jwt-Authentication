@@ -9,7 +9,7 @@ import { CreateUserDto, UpdateUserDto } from './dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { userSelect } from '../prisma/selects';
 import { transformUsers } from './utils';
-import { PaginationDto } from './dto/pagination.dto';
+import { PaginationDto } from './dto';
 
 @Injectable()
 export class UserService {
