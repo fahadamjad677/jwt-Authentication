@@ -1,10 +1,14 @@
 import { createParamDecorator, ExecutionContext } from '@nestjs/common';
-import { RequestWithCookies } from '../interface/cookie.interface';
+import { RequestWithAuth } from '../interface';
 
 export const GetCookies = createParamDecorator(
-  (data: string, ctx: ExecutionContext) => {
-    const request = ctx.switchToHttp().getRequest<RequestWithCookies>();
+  (data: keyof RequestWithAuth['cookies'], ctx: ExecutionContext) => {
+    const request = ctx.switchToHttp().getRequest<RequestWithAuth>();
 
-    return data ? request.cookies?.[data] : request.cookies;
+    if (data) {
+      return request.cookies?.[data];
+    }
+
+    return request.cookies;
   },
 );

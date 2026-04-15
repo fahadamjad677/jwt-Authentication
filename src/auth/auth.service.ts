@@ -3,14 +3,16 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
-import { PrismaService } from 'src/prisma/prisma.service';
-import { RegisterDto } from './dto';
+import { PrismaService } from '../prisma/prisma.service';
 import { LoginDto } from './dto';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { PayloadUser } from './types';
-
+import { generateCsrfToken } from '../comman/utils';
+import { userSelect } from '../prisma/selects';
+import { authUserSelect } from '../prisma/selects/auth.user.select';
+import { buildPermissions } from './utils';
 @Injectable()
 export class AuthService {
   constructor(
@@ -18,64 +20,16 @@ export class AuthService {
     private jwtservice: JwtService,
     private configservice: ConfigService,
   ) {}
-  //Sign up
-  async signup(dto: RegisterDto) {
-    //If user Exists then return without registring.
-    const user = await this.prismaservice.user.findUnique({
-      where: {
-        email: dto.email,
-      },
-    });
-    if (user) {
-      throw new BadRequestException(' Email Already Exists');
-    }
-
-    //Creating hash for password.
-    const hashed = await bcrypt.hash(dto.password, 10);
-
-    // Get default role (user)
-    const defaultRole = await this.prismaservice.role.findUnique({
-      where: { name: 'user' },
-    });
-
-    if (!defaultRole) {
-      throw new Error('Default role not found. Please seed roles.');
-    }
-    //Registring User in database.
-    const userInsert = await this.prismaservice.user.create({
-      data: {
-        email: dto.email,
-        username: dto.username,
-        password: hashed,
-        isEmailVerified: false,
-        roleId: defaultRole.id,
-        isActive: true,
-        loginAttempts: 0,
-      },
-      select: {
-        email: true,
-        username: true,
-      },
-    });
-
-    return userInsert;
-  }
 
   //Sign in
   async signin(dto: LoginDto) {
     //If user Exists then validates password.
-    const user = await this.prismaservice.user.findUnique({
+    const user = await this.prismaservice.user.findFirst({
       where: {
         email: dto.email,
+        isDeleted: false,
       },
-      select: {
-        email: true,
-        username: true,
-        password: true,
-        id: true,
-        loginAttempts: true,
-        lockTime: true,
-      },
+      select: authUserSelect,
     });
     if (!user) {
       throw new BadRequestException(' Invalid Cridentails wrong email');
@@ -117,8 +71,8 @@ export class AuthService {
       where: { id: user.id },
       data: { loginAttempts: 0, lockTime: null },
     });
-
-    return this.signToken(user.id, user.email);
+    const permissions = buildPermissions(user);
+    return this.signToken(user.id, user.email, user.role.name, permissions);
   }
 
   //Logut
@@ -132,9 +86,16 @@ export class AuthService {
         refreshToken: null,
       },
     });
+
+    return 'logut Successfull';
   }
   //---------Token Encrpytion------------------
-  async signToken(id: string, email: string) {
+  async signToken(
+    id: string,
+    email: string,
+    role: string,
+    permissions: Array<string>,
+  ) {
     const secretAcess = this.configservice.get<string>('JWT_ACCESS_SECRET');
     const secretRefresh = this.configservice.get<string>('JWT_REFRESH_SECRET');
 
@@ -144,6 +105,8 @@ export class AuthService {
     const payload = {
       sub: id,
       email: email,
+      role: role,
+      permissions: permissions,
     };
 
     //Acess Token Signed
@@ -165,24 +128,32 @@ export class AuthService {
       where: { id: id },
       data: { refreshToken: hashedRefresh },
     });
-    return { access_token, refresh_token };
+
+    //CSRF TOKEN signing
+    const csrf_token = generateCsrfToken();
+    return { access_token, refresh_token, csrf_token };
   }
 
-  //Refresh Rotation
+  //Refresh and CSRF rotattion
   async refresh(user: LoginDto) {
     //Finding User.
     const payload = await this.prismaservice.user.findUnique({
       where: {
         email: user.email,
+        isDeleted: false,
       },
-      select: {
-        email: true,
-        id: true,
-      },
+      select: userSelect,
     });
+
     if (!payload) {
       throw new BadRequestException(' Invalid Cridentails');
     }
-    return this.signToken(payload.id, payload.email);
+    const permissions = buildPermissions(payload);
+    return this.signToken(
+      payload.id,
+      payload.email,
+      payload.role.name,
+      permissions,
+    );
   }
 }

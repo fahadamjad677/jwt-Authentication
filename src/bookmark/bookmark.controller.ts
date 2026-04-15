@@ -10,7 +10,12 @@ import {
   ParseUUIDPipe,
 } from '@nestjs/common';
 
-import { jwtAcessGuard, PermissionsGuard, RolesGuard } from '../auth/guard';
+import {
+  CsrfGuard,
+  jwtAcessGuard,
+  PermissionsGuard,
+  RolesGuard,
+} from '../auth/guard';
 import { GetUser } from '../user/decorator/getUser.decorator';
 import type { PayloadUser } from '../auth/types';
 import { BookmarkService } from './bookmark.service';
@@ -18,7 +23,7 @@ import { CreateBookmarkDto } from './dto';
 import { UpdateBookmarkDto } from './dto';
 import { Permissions, Roles } from '../auth/decorator';
 
-@UseGuards(jwtAcessGuard, RolesGuard, PermissionsGuard)
+@UseGuards(jwtAcessGuard, CsrfGuard, RolesGuard, PermissionsGuard)
 @Controller('bookmark')
 export class BookmarkController {
   constructor(private bookmarkService: BookmarkService) {}

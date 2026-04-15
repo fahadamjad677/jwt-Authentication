@@ -1,72 +1,60 @@
 import {
-  Body,
   Controller,
+  Post,
   Get,
   Patch,
   Delete,
+  Body,
   Param,
   UseGuards,
   ParseUUIDPipe,
 } from '@nestjs/common';
 
-import { jwtAcessGuard, RolesGuard, PermissionsGuard } from '../auth/guard';
-import { GetUser } from './decorator/getUser.decorator';
-import type { PayloadUser } from '../auth/types';
 import { UserService } from './user.service';
-import { UpdateUserDto } from './dto/updateUser.dto';
-import { Roles, Permissions } from '../auth/decorator';
-import { UpdateRole } from './dto';
+import { CreateUserDto, UpdateUserDto } from './dto';
+import { GetUser } from './decorator';
+import { CsrfGuard, jwtAcessGuard, RolesGuard } from '../auth/guard';
+import { Roles } from '../auth/decorator';
 
-@UseGuards(jwtAcessGuard, RolesGuard, PermissionsGuard)
-@Controller('users')
+@UseGuards(jwtAcessGuard, CsrfGuard, RolesGuard)
+@Roles('SUPER_ADMIN')
+@Controller('super-admin/users')
 export class UserController {
   constructor(private readonly userService: UserService) {}
 
-  //Current user
-  @Get('me')
-  getMe(@GetUser() user: PayloadUser) {
-    return this.userService.getById(user.sub);
+  // Create User (Admin/User)
+  @Post()
+  createUser(
+    @Body() dto: CreateUserDto,
+    @GetUser('sub', ParseUUIDPipe) id: string,
+  ) {
+    return this.userService.createUser(dto, id);
   }
 
-  // Update own profile
-  @Patch('me')
-  @Permissions('update_own_profile')
-  updateMe(@GetUser() user: PayloadUser, @Body() dto: UpdateUserDto) {
-    return this.userService.updateUser(user.sub, dto);
-  }
-
-  // Delete own account
-  @Delete('me')
-  @Permissions('delete_account')
-  deleteMe(@GetUser() user: PayloadUser) {
-    return this.userService.deleteUser(user.sub);
-  }
-
-  // Admin/Moderator: Get all users
+  // Get All Users
   @Get()
-  @Roles('ADMIN', 'MODERATOR')
-  @Permissions('view_users')
   getAllUsers() {
     return this.userService.getAllUsers();
   }
 
-  //  Admin/Moderator: Get user by ID
+  // Get Single User
   @Get(':id')
-  @Roles('ADMIN', 'MODERATOR')
-  @Permissions('view_user')
-  getUserById(@Param('id', ParseUUIDPipe) id: string) {
-    return this.userService.getById(id);
+  getUser(@Param('id', ParseUUIDPipe) id: string) {
+    return this.userService.getUserById(id);
   }
 
-  //  Update user role (high privilege)
-  @Patch(':id/role')
-  @Roles('ADMIN')
-  @Permissions('update_user_role')
-  updateUserRole(
+  // Update User
+  @Patch(':id')
+  updateUser(
     @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: UpdateRole,
-    @GetUser() user: PayloadUser,
+    @Body() dto: UpdateUserDto,
   ) {
-    return this.userService.updateRole(id, dto.role, user);
+    return this.userService.updateUser(id, dto);
+  }
+
+  // Soft Delete
+  @Delete(':id')
+  deleteUser(@Param('id', ParseUUIDPipe) id: string) {
+    return this.userService.softDeleteUser(id);
   }
 }

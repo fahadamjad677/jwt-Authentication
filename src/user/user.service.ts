@@ -1,159 +1,164 @@
 import {
-  ForbiddenException,
   Injectable,
+  BadRequestException,
   NotFoundException,
 } from '@nestjs/common';
+import * as bcrypt from 'bcrypt';
+
+import { CreateUserDto, UpdateUserDto } from './dto';
 import { PrismaService } from '../prisma/prisma.service';
-import { UpdateUserDto } from './dto/updateUser.dto';
-import { isRoleType, PayloadUser } from '../auth/types';
-import { Prisma } from '../generated/prisma/client';
-
-//These is the Fields which we will select
-export const userSelect = {
-  id: true,
-  email: true,
-  username: true,
-  isActive: true,
-  isEmailVerified: true,
-  createdAt: true,
-
-  bookmarks: {
-    select: {
-      id: true,
-      title: true,
-      url: true,
-      description: true,
-      createdAt: true,
-    },
-    orderBy: {
-      createdAt: 'desc',
-    },
-  },
-} satisfies Prisma.UserSelect;
-
-const roleSelect = {
-  id: true,
-  name: true,
-} satisfies Prisma.RoleSelect;
+import { userSelect } from '../prisma/selects';
+import { transformUsers } from './utils';
 
 @Injectable()
 export class UserService {
   constructor(private prisma: PrismaService) {}
-  //Get User
-  async getById(id: string) {
-    const user = await this.prisma.user.findUnique({
-      where: { id },
-      select: userSelect,
-    });
 
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
-    return user;
-  }
-
-  //Update The User
-  async updateUser(id: string, dto: UpdateUserDto) {
-    const user = await this.prisma.user.update({
-      where: { id },
-      data: dto,
-      select: userSelect,
-    });
-
-    if (!user) {
-      throw new NotFoundException('user not found');
-    }
-    return user;
-  }
-
-  //Delete The user
-  async deleteUser(id: string) {
-    return this.prisma.user.delete({
-      where: { id },
-    });
-  }
-
-  //Get All The users In database.
-  async getAllUsers() {
-    const users = await this.prisma.user.findMany({
+  //------------Create User------------------
+  async createUser(dto: CreateUserDto, createdById: string) {
+    // Check email uniqueness of exists then throwing Error
+    //There is some problem of isDelete Scenario later ask Junaid Bhai
+    const existing = await this.prisma.user.findUnique({
+      where: { email: dto.email },
       select: {
         id: true,
-        email: true,
-        username: true,
-        isActive: true,
-        createdAt: true,
       },
     });
 
-    if (users.length === 0) {
-      throw new NotFoundException('users not found');
-    }
-    return users;
-  }
-
-  async updateRole(targetId: string, targetRole: string, user: PayloadUser) {
-    //  Cannot change your own role
-    if (user.sub === targetId) {
-      throw new ForbiddenException('Cannot change your own role');
+    if (existing) {
+      throw new BadRequestException('Email already exists');
     }
 
-    // Get target user WITH role
-    const targetUser = await this.prisma.user.findUnique({
-      where: { id: targetId },
-      include: {
-        role: true,
-      },
-    });
+    // Hash password
+    const hashedPassword = await bcrypt.hash(dto.password, 10);
 
-    if (!targetUser) {
-      throw new NotFoundException('User not found');
-    }
-
-    const newRole = await this.prisma.role.findUnique({
-      where: { name: targetRole },
-      select: roleSelect,
-    });
-
-    if (!newRole || !isRoleType(newRole.name)) {
-      throw new NotFoundException('Role not found or invalid');
-    }
-
-    if (!isRoleType(targetUser.role.name)) {
-      throw new ForbiddenException('Invalid role in database');
-    }
-
-    //Role hierarchy (string-based now)
-    const roleHierarchy: Record<string, number> = {
-      user: 1,
-      moderator: 2,
-      admin: 3,
-    };
-
-    const currentUserLevel = roleHierarchy[user.role];
-    const targetUserLevel = roleHierarchy[targetUser.role.name];
-    const newRoleLevel = roleHierarchy[targetRole];
-
-    // Cannot modify equal/higher user
-    if (targetUserLevel >= currentUserLevel) {
-      throw new ForbiddenException(
-        'You cannot modify a user with equal or higher role',
-      );
-    }
-
-    //  Cannot assign equal/higher role
-    if (newRoleLevel >= currentUserLevel) {
-      throw new ForbiddenException(
-        'You cannot assign a role equal or higher than yours',
-      );
-    }
-
-    //  Update role
-    return this.prisma.user.update({
-      where: { id: targetId },
+    //Creating User
+    const User = await this.prisma.user.create({
       data: {
-        roleId: newRole.id,
+        email: dto.email,
+        password: hashedPassword,
+        roleId: dto.roleId,
+        createdById,
       },
       select: userSelect,
     });
+
+    //Shaping the object
+    const userResponse = transformUsers(User);
+
+    //Returning Response
+    return {
+      success: true,
+      message: 'User Created Successfully',
+      data: userResponse,
+    };
+  }
+
+  //-------Getting All Users----------------
+  async getAllUsers() {
+    const users = await this.prisma.user.findMany({
+      where: {
+        isDeleted: false,
+      },
+      select: userSelect,
+    });
+    if (!users) {
+      throw new NotFoundException('user not found');
+    }
+    const usersResponse = transformUsers(users);
+    // Returning Response
+    return {
+      success: true,
+      message: 'User fetched Successfully',
+      data: usersResponse,
+    };
+  }
+
+  //--------Getting Single User---------------
+  async getUserById(id: string) {
+    //Checking if not Exists then throwing Error
+    const user = await this.prisma.user.findUnique({
+      where: {
+        id,
+        isDeleted: false,
+      },
+      select: userSelect,
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const userResponse = transformUsers(user);
+    // Returning Response
+    return {
+      success: true,
+      message: 'User fetched Successfully',
+      data: userResponse,
+    };
+  }
+
+  //----------Updating User---------------
+  async updateUser(id: string, dto: UpdateUserDto) {
+    //Checking if not exists then throwing Error
+    const exists = await this.prisma.user.findUnique({
+      where: { id, isDeleted: false },
+      select: {
+        id: true,
+      },
+    });
+
+    if (!exists) {
+      throw new NotFoundException('User not found');
+    }
+
+    const updatedData: UpdateUserDto = { ...dto };
+
+    // Hash password if updating
+    if (dto.password) {
+      updatedData.password = await bcrypt.hash(dto.password, 10);
+    }
+
+    //Updating User in database
+    const user = await this.prisma.user.update({
+      where: { id },
+      data: updatedData,
+      select: userSelect,
+    });
+
+    const userResponse = transformUsers(user);
+    //Returning Response
+    return {
+      success: true,
+      message: 'User updated Successfully',
+      data: userResponse,
+    };
+  }
+
+  //------Soft Delete user--------------
+  async softDeleteUser(id: string) {
+    //Checking if not exists then throwing Error
+    const user = await this.prisma.user.findUnique({
+      where: { id, isDeleted: false },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    //Deleting from database
+    await this.prisma.user.update({
+      where: { id },
+      data: {
+        isDeleted: true,
+      },
+    });
+
+    //Shaping User into simple Api object
+    //Returning Response
+    return {
+      success: true,
+      message: 'User deleted Successfully',
+    };
   }
 }

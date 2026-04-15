@@ -6,6 +6,8 @@ import { UserModuleModule } from './user/user.module';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 import { BookmarkModule } from './bookmark/bookmark.module';
+import { RoleModule } from './role/role.module';
+import { PermissionModule } from './permission/permission.module';
 @Module({
   imports: [
     PrismaModule,
@@ -21,6 +23,8 @@ import { BookmarkModule } from './bookmark/bookmark.module';
         },
       ],
     }),
+    RoleModule,
+    PermissionModule,
   ],
   providers: [
     {

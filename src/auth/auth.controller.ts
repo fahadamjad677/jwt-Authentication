@@ -1,9 +1,8 @@
 import { Body, Controller, Post, Res, UseGuards } from '@nestjs/common';
-import { RegisterDto } from './dto';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto';
 import type { Response } from 'express';
-import { jwtRefreshGuard, jwtAcessGuard } from './guard';
+import { jwtRefreshGuard, jwtAcessGuard, CsrfGuard } from './guard';
 import { Throttle } from '@nestjs/throttler';
 import { GetUser } from 'src/user/decorator/getUser.decorator';
 import type { PayloadUser } from './types';
@@ -11,11 +10,6 @@ import type { PayloadUser } from './types';
 @Controller('auth')
 export class AuthController {
   constructor(private authservice: AuthService) {}
-  //Sign up
-  @Post('signup')
-  signup(@Body() dto: RegisterDto) {
-    return this.authservice.signup(dto);
-  }
 
   //Sign in
   //Using route-specific rate limiting.
@@ -32,11 +26,24 @@ export class AuthController {
       sameSite: 'strict',
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
-    return { access_token: tokens.access_token };
+    res.cookie('access_token', tokens.access_token, {
+      httpOnly: true,
+      secure: false,
+      sameSite: 'strict',
+      maxAge: 15 * 60 * 1000, // 15 min
+    });
+
+    res.cookie('csrf_token', tokens.csrf_token, {
+      httpOnly: true,
+      secure: false,
+      sameSite: 'strict',
+      maxAge: 15 * 60 * 1000, // 15 min
+    });
+    return 'login successfull';
   }
 
   //logout
-  @UseGuards(jwtAcessGuard)
+  @UseGuards(jwtAcessGuard, CsrfGuard)
   @Post('logout')
   logout(
     @GetUser() user: PayloadUser,
@@ -47,11 +54,16 @@ export class AuthController {
       secure: false,
       sameSite: 'strict',
     });
+    res.clearCookie('access_token', {
+      httpOnly: true,
+      secure: false,
+      sameSite: 'strict',
+    });
     return this.authservice.Logout(user);
   }
 
   //refresh token
-  @UseGuards(jwtRefreshGuard)
+  @UseGuards(jwtRefreshGuard, CsrfGuard)
   @Post('refresh')
   async refreshToken(
     @Body() dto: LoginDto,
@@ -64,6 +76,12 @@ export class AuthController {
       sameSite: 'strict',
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
-    return { access_token: tokens.access_token };
+    res.cookie('access_token', tokens.access_token, {
+      httpOnly: true,
+      secure: false,
+      sameSite: 'strict',
+      maxAge: 15 * 60 * 1000, // 15 min
+    });
+    return 'refresh successful';
   }
 }

@@ -2,7 +2,7 @@ import 'dotenv/config';
 
 import { PrismaClient } from '../src/generated/prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
-import type { PrismaClientOptions } from '@prisma/client/runtime/client';
+import { type PrismaClientOptions } from '@prisma/client/runtime/client';
 import bcrypt from 'bcrypt';
 
 // -------------------------
@@ -23,138 +23,114 @@ const prisma = new PrismaClient({ adapter });
 async function main() {
   console.log('🌱 Seeding started...');
 
-  // -------------------------
-  // 🔹 Permissions
-  // -------------------------
-  const permissionsList = [
-    'update_own_profile',
-    'delete_account',
-    'view_users',
-    'view_user',
-    'update_profile',
-    'update_user_role',
-    'create_bookmark',
-    'view_own_bookmarks',
-    'update_bookmark',
-    'delete_bookmark',
-    'view_all_bookmarks',
-  ];
+  await prisma.$transaction(async (tx) => {
+    // -------------------------
+    // 1️⃣ Create Super Admin Role
+    // -------------------------
+    const superAdminRole = await tx.role.upsert({
+      where: { name: 'SUPER_ADMIN' },
+      update: {},
+      create: {
+        name: 'SUPER_ADMIN',
+        type: 'SUPER_ADMIN',
+      },
+    });
 
-  const permissions = await Promise.all(
-    permissionsList.map((name) =>
-      prisma.permission.upsert({
-        where: { name },
-        update: {},
-        create: { name },
-      }),
-    ),
-  );
+    // -------------------------
+    // 2️⃣ Create Super Admin User
+    // -------------------------
+    const hashedPassword = await bcrypt.hash('admin123', 10);
 
-  // -------------------------
-  // 🔹 Roles
-  // -------------------------
-  const userRole = await prisma.role.upsert({
-    where: { name: 'USER' },
-    update: {},
-    create: { name: 'USER' },
+    const superAdmin = await tx.user.upsert({
+      where: { email: 'superadmin@test.com' },
+      update: {},
+      create: {
+        email: 'superadmin@test.com',
+        password: hashedPassword,
+        roleId: superAdminRole.id,
+        createdById: null, // ✅ root
+      },
+    });
+
+    // -------------------------
+    // 3️⃣ Fix Role createdById (ONLY if null)
+    // -------------------------
+    if (!superAdminRole.createdById) {
+      await tx.role.update({
+        where: { id: superAdminRole.id },
+        data: {
+          createdById: superAdmin.id,
+        },
+      });
+    }
+
+    // -------------------------
+    // 4️⃣ Permissions
+    // -------------------------
+    const permissionsData = [
+      { resource: 'user', action: 'create' },
+      { resource: 'user', action: 'read' },
+      { resource: 'user', action: 'update' },
+      { resource: 'user', action: 'delete' },
+
+      { resource: 'role', action: 'create' },
+      { resource: 'role', action: 'read' },
+      { resource: 'role', action: 'update' },
+      { resource: 'role', action: 'delete' },
+
+      { resource: 'permission', action: 'create' },
+      { resource: 'permission', action: 'read' },
+
+      { resource: 'bookmark', action: 'create' },
+      { resource: 'bookmark', action: 'read' },
+      { resource: 'bookmark', action: 'update' },
+      { resource: 'bookmark', action: 'delete' },
+    ];
+
+    const permissions = [];
+
+    for (const p of permissionsData) {
+      const perm = await tx.permission.upsert({
+        where: {
+          resource_action: {
+            resource: p.resource,
+            action: p.action,
+          },
+        },
+        update: {
+          // ✅ ensure creator is fixed if missing
+          createdById: superAdmin.id,
+        },
+        create: {
+          name: `${p.resource}:${p.action}`,
+          resource: p.resource,
+          action: p.action,
+          createdById: superAdmin.id,
+        },
+      });
+
+      permissions.push(perm);
+    }
+
+    // -------------------------
+    // 5️⃣ Assign Permissions
+    // -------------------------
+    await tx.rolePermission.createMany({
+      data: permissions.map((p) => ({
+        roleId: superAdminRole.id,
+        permissionId: p.id,
+      })),
+      skipDuplicates: true,
+    });
+
+    console.log('👑 Super Admin created');
   });
 
-  const moderatorRole = await prisma.role.upsert({
-    where: { name: 'MODERATOR' },
-    update: {},
-    create: { name: 'MODERATOR' },
-  });
-
-  const adminRole = await prisma.role.upsert({
-    where: { name: 'ADMIN' },
-    update: {},
-    create: { name: 'ADMIN' },
-  });
-
-  // -------------------------
-  // 🔹 Helper Function
-  // -------------------------
-  const getPermissionId = (name: string) =>
-    permissions.find((p) => p.name === name)?.id as string;
-
-  // -------------------------
-  // 🔹 Role Permissions
-  // -------------------------
-
-  // USER
-  await prisma.rolePermission.createMany({
-    data: [
-      {
-        roleId: userRole.id,
-        permissionId: getPermissionId('update_own_profile'),
-      },
-      {
-        roleId: userRole.id,
-        permissionId: getPermissionId('delete_account'),
-      },
-    ],
-    skipDuplicates: true,
-  });
-
-  // MODERATOR
-  await prisma.rolePermission.createMany({
-    data: [
-      {
-        roleId: moderatorRole.id,
-        permissionId: getPermissionId('view_users'),
-      },
-      {
-        roleId: moderatorRole.id,
-        permissionId: getPermissionId('view_user'),
-      },
-      {
-        roleId: moderatorRole.id,
-        permissionId: getPermissionId('update_own_profile'),
-      },
-      {
-        roleId: moderatorRole.id,
-        permissionId: getPermissionId('view_own_bookmarks'),
-      },
-      {
-        roleId: moderatorRole.id,
-        permissionId: getPermissionId('view_all_bookmarks'),
-      },
-    ],
-    skipDuplicates: true,
-  });
-
-  // ADMIN → gets ALL permissions
-  await prisma.rolePermission.createMany({
-    data: permissions.map((p) => ({
-      roleId: adminRole.id,
-      permissionId: p.id,
-    })),
-    skipDuplicates: true,
-  });
-
-  // -------------------------
-  // 🔹 Create ONE Admin User
-  // -------------------------
-  const adminEmail = 'admin@test.com';
-
-  const hashedPassword = await bcrypt.hash('admin123', 10);
-
-  await prisma.user.upsert({
-    where: { email: adminEmail },
-    update: {}, // don't overwrite existing admin
-    create: {
-      email: adminEmail,
-      password: hashedPassword,
-      roleId: adminRole.id,
-    },
-  });
-
-  console.log('👑 Admin user ensured');
   console.log('✅ Seeding completed');
 }
 
 // -------------------------
-// 4️⃣ Execute Seed
+// Run Seed
 // -------------------------
 main()
   .catch((e) => {

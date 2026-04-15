@@ -14,15 +14,24 @@ model User {
   username        String?
   password        String
   
-  roleId String
-  role   Role   @relation(fields: [roleId], references: [id])
+  roleId          String
+  role            Role        @relation(fields: [roleId], references: [id])
+
+  //SELF RELATION (User hierarchy)
+  createdById     String?
+  createdBy       User?       @relation("UserCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  createdUsers    User[]      @relation("UserCreator")
+
+  //Reverse relations
+  createdRoles        Role[]        @relation("RoleCreator")
+  createdPermissions  Permission[]  @relation("PermissionCreator")
 
   isActive        Boolean     @default(true)
   isEmailVerified Boolean     @default(false)
   refreshToken    String?
   loginAttempts   Int         @default(0)
   lockTime        DateTime?
-
+  isDeleted Boolean           @default(false)
   bookmarks       Bookmark[]
 
   createdAt       DateTime    @default(now())
@@ -47,18 +56,46 @@ model Bookmark {
 
 
 //User will have one roll
+enum RoleType {
+  SUPER_ADMIN
+  CUSTOM
+}
+
 model Role {
   id          String       @id @default(uuid())
   name        String       @unique
+
+  type        RoleType     @default(CUSTOM)
+
+  // FIX: OPTIONAL (breaks circular dependency)
+  createdById String?      
+  createdBy   User?        @relation("RoleCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
   permissions RolePermission[]
   users       User[]
+
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
 }
 
 
 model Permission {
   id          String       @id @default(uuid())
   name        String       @unique
+
+  resource    String
+  action      String
+
+  //FIX: OPTIONAL
+  createdById String?
+  createdBy   User?        @relation("PermissionCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
   roles       RolePermission[]
+  
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@unique([resource, action],name:"resource_action")
 }
 
 
@@ -67,8 +104,8 @@ model RolePermission {
   roleId        String
   permissionId  String
 
-  role          Role        @relation(fields: [roleId], references: [id])
-  permission    Permission  @relation(fields: [permissionId], references: [id])
+  role          Role        @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission    Permission  @relation(fields: [permissionId], references: [id], onDelete: Cascade)
 
   @@id([roleId, permissionId])
 }
