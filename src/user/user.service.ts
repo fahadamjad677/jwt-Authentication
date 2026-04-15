@@ -9,6 +9,8 @@ import { CreateUserDto, UpdateUserDto } from './dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { userSelect } from '../prisma/selects';
 import { transformUsers } from './utils';
+import { CursorPaginationDto } from './dto/cursor-pagination.dto';
+// import { Prisma } from 'src/generated/prisma/client';
 
 @Injectable()
 export class UserService {
@@ -55,22 +57,60 @@ export class UserService {
   }
 
   //-------Getting All Users----------------
-  async getAllUsers() {
+  async getAllUsers(cursorpaginationDto: CursorPaginationDto) {
+    //Extracting Cursor and limit from dto
+    const { cursor, limit } = cursorpaginationDto;
+
+    //Later Ask Junaid Bhaii for this..
+    // const query: Prisma.UserFindManyArgs = {
+    //   take: limit + 1, //Taking limit + 1 to check if the next record exists
+    //   where: {
+    //     isDeleted: false,
+    //   },
+    //   orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+    //   select: userSelect,
+    // };
+
+    // //cursor Exisits then Adding Cursor in dataBase Query
+    // if (cursor) {
+    //   query.cursor = { id: cursor };
+    //   query.skip = 1;
+    // }
+
+    // const users = await this.prisma.user.findMany(query);
+
     const users = await this.prisma.user.findMany({
+      take: limit + 1,
+      ...(cursor && {
+        cursor: { id: cursor },
+        skip: 1,
+      }),
       where: {
         isDeleted: false,
       },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       select: userSelect,
     });
-    if (!users) {
-      throw new NotFoundException('user not found');
+
+    // Cursor handling
+    let nextCursor: string | null = null;
+
+    if (users.length > limit) {
+      users.pop();
+      nextCursor = users[users.length - 1].id;
     }
+    //Shaping Data
     const usersResponse = transformUsers(users);
+
     // Returning Response
     return {
       success: true,
       message: 'User fetched Successfully',
       data: usersResponse,
+      meta: {
+        limit,
+        nextCursor,
+      },
     };
   }
 
