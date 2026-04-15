@@ -99,16 +99,14 @@ export class RoleService {
     await this.ExistsCheck(id);
 
     //Deleting Record from database
-    const role = await this.prisma.role.delete({
+    await this.prisma.role.delete({
       where: { id },
-      select: roleSelect,
     });
 
     //Returning Response
     return {
       success: true,
       message: 'Role Deleted successfully',
-      data: role,
     };
   }
 

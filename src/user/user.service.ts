@@ -62,62 +62,39 @@ export class UserService {
       },
       select: userSelect,
     });
-    if (users) {
-      const usersResponse = transformUsers(users);
-      // Returning Response
-      return {
-        success: true,
-        message: 'User fetched Successfully',
-        data: usersResponse,
-      };
+    if (!users) {
+      throw new NotFoundException('user not found');
     }
-
+    const usersResponse = transformUsers(users);
+    // Returning Response
     return {
-      success: false,
-      message: 'Users not found',
-      data: users,
+      success: true,
+      message: 'User fetched Successfully',
+      data: usersResponse,
     };
   }
 
   //--------Getting Single User---------------
   async getUserById(id: string) {
     //Checking if not Exists then throwing Error
-    const exists = await this.prisma.user.findUnique({
-      where: {
-        id,
-      },
-      select: {
-        id: true,
-        isDeleted: true,
-      },
-    });
-
-    if (!exists || exists.isDeleted) {
-      throw new NotFoundException('User not found');
-    }
-
-    // Getting User from Database
     const user = await this.prisma.user.findUnique({
       where: {
         id,
+        isDeleted: false,
       },
       select: userSelect,
     });
 
-    if (user) {
-      const userResponse = transformUsers(user);
-      // Returning Response
-      return {
-        success: true,
-        message: 'User fetched Successfully',
-        data: userResponse,
-      };
+    if (!user) {
+      throw new NotFoundException('User not found');
     }
 
+    const userResponse = transformUsers(user);
+    // Returning Response
     return {
-      success: false,
-      message: 'User not found',
-      data: user,
+      success: true,
+      message: 'User fetched Successfully',
+      data: userResponse,
     };
   }
 
@@ -125,18 +102,16 @@ export class UserService {
   async updateUser(id: string, dto: UpdateUserDto) {
     //Checking if not exists then throwing Error
     const exists = await this.prisma.user.findUnique({
-      where: { id },
+      where: { id, isDeleted: false },
       select: {
         id: true,
-        isDeleted: true,
       },
     });
 
-    if (!exists || exists.isDeleted) {
+    if (!exists) {
       throw new NotFoundException('User not found');
     }
 
-    //later ask junaid bhaii can we directly update dto validated data.
     const updatedData: UpdateUserDto = { ...dto };
 
     // Hash password if updating
@@ -164,29 +139,26 @@ export class UserService {
   async softDeleteUser(id: string) {
     //Checking if not exists then throwing Error
     const user = await this.prisma.user.findUnique({
-      where: { id },
+      where: { id, isDeleted: false },
     });
 
-    if (!user || user.isDeleted) {
+    if (!user) {
       throw new NotFoundException('User not found');
     }
 
     //Deleting from database
-    const deleted = await this.prisma.user.update({
+    await this.prisma.user.update({
       where: { id },
       data: {
         isDeleted: true,
       },
-      select: userSelect,
     });
 
     //Shaping User into simple Api object
-    const userResponse = transformUsers(deleted);
     //Returning Response
     return {
       success: true,
       message: 'User deleted Successfully',
-      data: userResponse,
     };
   }
 }
